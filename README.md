@@ -5,7 +5,7 @@ Prettier plugin for formatting Nunjucks (`.njk`) template files. Uses Prettier's
 ## Installation
 
 ```bash
-npm install --save-dev prettier prettier-plugin-nunjucks
+npm install --save-dev prettier github:djvadya/prettier-plugin-nunjucks
 ```
 
 ## Usage
@@ -38,7 +38,7 @@ npx prettier --write "**/*.njk"
 }
 ```
 
-> If VS Code doesn't recognize `.njk` files as Nunjucks, install the [Nunjucks](https://marketplace.visualstudio.com/items?itemName=ronnidc.nunjucks) extension for language support.
+> For `.njk` syntax highlighting install [Better Nunjucks](https://marketplace.visualstudio.com/items?itemName=ginfuru.better-nunjucks).
 
 ## Example
 
