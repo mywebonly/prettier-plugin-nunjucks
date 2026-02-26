@@ -1,0 +1,5 @@
+{
+  "plugins": ["./dist/index.js"],
+  "tabWidth": 4,
+  "printWidth": 140
+}

@@ -1,0 +1,37 @@
+{
+  "name": "prettier-plugin-nunjucks",
+  "version": "0.1.0",
+  "description": "Prettier plugin for formatting Nunjucks (.njk) templates",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm run test"
+  },
+  "keywords": [
+    "prettier",
+    "plugin",
+    "nunjucks",
+    "njk",
+    "template",
+    "formatter"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "prettier": "^3.8.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.1",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "@types/node": "^22.0.0"
+  }
+}
