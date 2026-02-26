@@ -1,3 +1,4 @@
+import { formatOutput } from "./format-output.js";
 import { replacePlaceholders, restorePlaceholders } from "./placeholder.js";
 export const languages = [
     {
@@ -23,9 +24,10 @@ export const parsers = {
                 bracketSameLine: options.bracketSameLine,
             });
             const restored = restorePlaceholders(formatted, map);
+            const postProcessed = formatOutput(restored, options.printWidth, options.tabWidth);
             return {
                 type: "nunjucks-output",
-                body: restored,
+                body: postProcessed,
                 source: text,
             };
         },
