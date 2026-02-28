@@ -1,7 +1,8 @@
 /**
  * Post-processing for formatted Nunjucks output:
- * 1. Format object/array literals inside {% set %} tags
- * 2. Indent content inside {% block %}...{% endblock %}
+ * 1. Pre-process expression placeholders (collapse objects in arrays)
+ * 2. Format object/array literals inside {% set %} tags
+ * 3. Indent content inside {% block %}...{% endblock %}
  */
 // ─── Public API ──────────────────────────────────────────────
 export function formatOutput(text, printWidth, tabWidth) {
@@ -9,6 +10,112 @@ export function formatOutput(text, printWidth, tabWidth) {
     result = formatSetTags(result, printWidth, tabWidth);
     result = formatBlocks(result, tabWidth);
     return result;
+}
+/**
+ * Pre-process expression entries in the placeholder map before restoration.
+ * Collapses multi-line objects inside arrays within {{ }} expressions
+ * so that restorePlaceholders re-indents them correctly.
+ */
+export function preprocessExpressions(map, tabWidth) {
+    for (const [, entry] of map) {
+        if (entry.type === "expression" && entry.original.includes("\n")) {
+            const processed = collapseObjectsInExprArrays(entry.original, tabWidth);
+            if (processed !== entry.original) {
+                entry.original = processed;
+            }
+        }
+    }
+}
+// ─── Expression Array Collapsing ─────────────────────────────
+function collapseObjectsInExprArrays(expr, tabWidth) {
+    let result = "";
+    let i = 0;
+    while (i < expr.length) {
+        // Skip string literals
+        if (expr[i] === '"' || expr[i] === "'") {
+            const end = skipStringLiteral(expr, i);
+            result += expr.slice(i, end);
+            i = end;
+            continue;
+        }
+        if (expr[i] === "[") {
+            const endIdx = findBalancedBracket(expr, i);
+            if (endIdx !== -1) {
+                const section = expr.slice(i, endIdx + 1);
+                if (section.includes("\n") && section.includes("{")) {
+                    const formatted = reformatArraySection(section, getLineIndent(expr, i), tabWidth);
+                    if (formatted !== null) {
+                        result += formatted;
+                        i = endIdx + 1;
+                        continue;
+                    }
+                }
+            }
+        }
+        result += expr[i++];
+    }
+    return result;
+}
+function reformatArraySection(arrayText, lineIndent, tabWidth) {
+    const inner = arrayText.slice(1, -1).trim();
+    if (!inner)
+        return null;
+    const tokens = tokenize(inner);
+    if (tokens.length === 0)
+        return null;
+    // Wrap tokens with brackets to parse as array
+    const wrapTokens = [
+        { type: "open_bracket", value: "[" },
+        ...tokens,
+        { type: "close_bracket", value: "]" },
+    ];
+    const parsed = parseArray(wrapTokens, 0);
+    if (!parsed || parsed.nextPos !== wrapTokens.length)
+        return null;
+    const arr = parsed.value;
+    // Only reformat if array contains objects
+    if (!arr.items.some((item) => item.type === "object"))
+        return null;
+    const itemIndent = lineIndent + tabWidth;
+    const itemIndentStr = " ".repeat(itemIndent);
+    const closingIndentStr = " ".repeat(lineIndent);
+    const itemLines = arr.items.map((item) => `${itemIndentStr}${formatOneLine(item)}`);
+    return "[\n" + itemLines.join(",\n") + "\n" + closingIndentStr + "]";
+}
+function skipStringLiteral(text, start) {
+    const quote = text[start];
+    let i = start + 1;
+    while (i < text.length && text[i] !== quote) {
+        if (text[i] === "\\")
+            i++;
+        i++;
+    }
+    return i < text.length ? i + 1 : i;
+}
+function findBalancedBracket(text, start) {
+    let depth = 0;
+    let i = start;
+    while (i < text.length) {
+        if (text[i] === '"' || text[i] === "'") {
+            i = skipStringLiteral(text, i);
+            continue;
+        }
+        if (text[i] === "[")
+            depth++;
+        else if (text[i] === "]") {
+            depth--;
+            if (depth === 0)
+                return i;
+        }
+        i++;
+    }
+    return -1;
+}
+function getLineIndent(text, pos) {
+    const lineStart = text.lastIndexOf("\n", pos - 1);
+    const lineContent = text.slice(lineStart + 1);
+    const match = lineContent.match(/^(\s*)/);
+    return match ? match[1].length : 0;
 }
 // ─── Set Tag Formatting ─────────────────────────────────────
 const MULTILINE_SET_RE = /\{%[-~]?\s*set\s+\w+\s*=\s*[\s\S]*?[-~]?%\}/g;

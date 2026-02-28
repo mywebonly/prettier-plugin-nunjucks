@@ -1,4 +1,4 @@
-import { formatOutput } from "./format-output.js";
+import { formatOutput, preprocessExpressions } from "./format-output.js";
 import { replacePlaceholders, restorePlaceholders } from "./placeholder.js";
 
 export const languages = [
@@ -27,6 +27,7 @@ export const parsers = {
         bracketSameLine: options.bracketSameLine,
       });
 
+      preprocessExpressions(map, options.tabWidth);
       const restored = restorePlaceholders(formatted, map);
       const postProcessed = formatOutput(
         restored,
