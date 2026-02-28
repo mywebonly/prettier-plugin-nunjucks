@@ -26,6 +26,7 @@ const BLOCK_TAG_NAMES = new Set([
     "filter",
     "endfilter",
     "set",
+    "endset",
     "raw",
     "endraw",
 ]);

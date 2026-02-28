@@ -9,6 +9,7 @@ export function formatOutput(text, printWidth, tabWidth) {
     let result = text;
     result = formatSetTags(result, printWidth, tabWidth);
     result = formatBlocks(result, tabWidth);
+    result = collapseEmptyBlocks(result);
     return result;
 }
 /**
@@ -116,6 +117,16 @@ function getLineIndent(text, pos) {
     const lineContent = text.slice(lineStart + 1);
     const match = lineContent.match(/^(\s*)/);
     return match ? match[1].length : 0;
+}
+// ─── Empty Block Collapsing ──────────────────────────────────
+/**
+ * Collapse empty blocks like:
+ *   {% block name %}
+ *   {% endblock %}
+ * into a single line: {% block name %}{% endblock %}
+ */
+function collapseEmptyBlocks(text) {
+    return text.replace(/(\{%[-~]?\s*block\s+\w+\s*[-~]?%\})\s*\n\s*(\{%[-~]?\s*endblock\s*[-~]?%\})/g, "$1$2");
 }
 // ─── Set Tag Formatting ─────────────────────────────────────
 const MULTILINE_SET_RE = /\{%[-~]?\s*set\s+\w+\s*=\s*[\s\S]*?[-~]?%\}/g;
@@ -338,13 +349,17 @@ function formatValueMultiLine(value, printWidth, tabWidth, indent, column, force
 // ─── Block Formatting ───────────────────────────────────────
 // Opening tags that increase indentation
 const OPENING_TAGS = /^\{%[-~]?\s*(if|for|block|macro|call|filter|raw)\b/;
-// Closing tags that decrease indentation
-const CLOSING_TAGS = /^\{%[-~]?\s*(endif|endfor|endblock|endmacro|endcall|endfilter|endraw)\b/;
+// Block-form set: {% set name %} (without =)
+const BLOCK_SET_TAG = /^\{%[-~]?\s*set\s+\w+\s*[-~]?%\}$/;
+// Closing tags that decrease indentation (start of line)
+const CLOSING_TAGS = /^\{%[-~]?\s*(endif|endfor|endblock|endmacro|endcall|endfilter|endraw|endset)\b/;
+// Closing tags anywhere in the line (for self-closing detection)
+const CONTAINS_CLOSING = /\{%[-~]?\s*(endif|endfor|endblock|endmacro|endcall|endfilter|endraw|endset)\b/;
 // Middle tags that temporarily decrease indentation for one line
 const MIDDLE_TAGS = /^\{%[-~]?\s*(else|elif|elseif)\b/;
 function formatBlocks(text, tabWidth) {
     // Ensure closing tags are on their own lines
-    let result = text.replace(/(\S)[ \t]*(\{%[-~]?\s*(?:endif|endfor|endblock|endmacro|endcall|endfilter|endraw)\b.*?[-~]?%\})/g, "$1\n$2");
+    let result = text.replace(/(\S)[ \t]*(\{%[-~]?\s*(?:endif|endfor|endblock|endmacro|endcall|endfilter|endraw|endset)\b.*?[-~]?%\})/g, "$1\n$2");
     const lines = result.split("\n");
     const output = [];
     const indent = " ".repeat(tabWidth);
@@ -352,7 +367,19 @@ function formatBlocks(text, tabWidth) {
     let depth = 0;
     for (const line of lines) {
         const trimmed = line.trim();
-        if (CLOSING_TAGS.test(trimmed)) {
+        const isOpening = OPENING_TAGS.test(trimmed) || BLOCK_SET_TAG.test(trimmed);
+        const isClosing = CLOSING_TAGS.test(trimmed);
+        const containsClosing = CONTAINS_CLOSING.test(trimmed);
+        if (isOpening && containsClosing) {
+            // Self-contained line (e.g., {% block name %}{% endblock %}) — no depth change
+            if (depth > 0) {
+                output.push(indent.repeat(depth) + line);
+            }
+            else {
+                output.push(line);
+            }
+        }
+        else if (isClosing) {
             // Decrease depth, then output at same level as opener
             depth = Math.max(0, depth - 1);
             output.push(indent.repeat(depth) + line);
@@ -373,7 +400,7 @@ function formatBlocks(text, tabWidth) {
             output.push(line);
         }
         // Check if this line opens a new block (after outputting it)
-        if (OPENING_TAGS.test(trimmed) && !CLOSING_TAGS.test(trimmed)) {
+        if (isOpening && !containsClosing) {
             depth++;
         }
     }
