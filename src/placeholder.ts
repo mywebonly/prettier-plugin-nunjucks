@@ -89,9 +89,36 @@ export function restorePlaceholders(
 ): string {
   let result = text;
   for (const [placeholder, entry] of map) {
-    // Escape special regex characters in placeholder
     const escaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    result = result.replace(new RegExp(escaped, "g"), entry.original);
+    result = result.replace(new RegExp(escaped, "g"), (match, offset) => {
+      const original = entry.original;
+      if (!original.includes("\n")) return original;
+
+      // Find column position of placeholder in the output
+      const lastNewline = result.lastIndexOf("\n", offset);
+      const targetColumn = lastNewline === -1 ? offset : offset - lastNewline - 1;
+
+      const lines = original.split("\n");
+      // Find minimum indentation of lines 2+ (non-empty only)
+      let minIndent = Infinity;
+      for (let i = 1; i < lines.length; i++) {
+        if (lines[i].trim().length === 0) continue;
+        const indent = lines[i].match(/^(\s*)/)?.[1].length ?? 0;
+        if (indent < minIndent) minIndent = indent;
+      }
+      if (minIndent === Infinity) minIndent = 0;
+
+      // Re-indent lines 2+ relative to the target column
+      const reindented = lines.map((line, i) => {
+        if (i === 0) return line;
+        if (line.trim().length === 0) return "";
+        const currentIndent = line.match(/^(\s*)/)?.[1].length ?? 0;
+        const newIndent = targetColumn + (currentIndent - minIndent);
+        return " ".repeat(Math.max(0, newIndent)) + line.trimStart();
+      });
+
+      return reindented.join("\n");
+    });
   }
   return result;
 }

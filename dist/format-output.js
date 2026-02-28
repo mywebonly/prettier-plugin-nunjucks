@@ -229,23 +229,34 @@ function formatValueMultiLine(value, printWidth, tabWidth, indent, column, force
     return oneLine;
 }
 // ─── Block Formatting ───────────────────────────────────────
+// Opening tags that increase indentation
+const OPENING_TAGS = /^\{%[-~]?\s*(if|for|block|macro|call|filter|raw)\b/;
+// Closing tags that decrease indentation
+const CLOSING_TAGS = /^\{%[-~]?\s*(endif|endfor|endblock|endmacro|endcall|endfilter|endraw)\b/;
+// Middle tags that temporarily decrease indentation for one line
+const MIDDLE_TAGS = /^\{%[-~]?\s*(else|elif|elseif)\b/;
 function formatBlocks(text, tabWidth) {
-    // Ensure {% endblock %} is always on its own line
-    let result = text.replace(/([^\n])\s*(\{%[-~]?\s*endblock\b.*?[-~]?%\})/g, "$1\n$2");
+    // Ensure closing tags are on their own lines
+    let result = text.replace(/(\S)[ \t]*(\{%[-~]?\s*(?:endif|endfor|endblock|endmacro|endcall|endfilter|endraw)\b.*?[-~]?%\})/g, "$1\n$2");
     const lines = result.split("\n");
     const output = [];
-    let insideBlock = false;
-    let blockBaseIndent = "";
     const indent = " ".repeat(tabWidth);
+    // Stack tracks nesting depth; we just need the count
+    let depth = 0;
     for (const line of lines) {
         const trimmed = line.trim();
-        if (/^\{%[-~]?\s*endblock/.test(trimmed)) {
-            insideBlock = false;
-            output.push(blockBaseIndent + trimmed);
+        if (CLOSING_TAGS.test(trimmed)) {
+            // Decrease depth, then output at same level as opener
+            depth = Math.max(0, depth - 1);
+            output.push(indent.repeat(depth) + line);
         }
-        else if (insideBlock) {
+        else if (MIDDLE_TAGS.test(trimmed)) {
+            // else/elif at same level as opener (one less than content)
+            output.push(indent.repeat(Math.max(0, depth - 1)) + line);
+        }
+        else if (depth > 0) {
             if (trimmed) {
-                output.push(blockBaseIndent + indent + trimmed);
+                output.push(indent.repeat(depth) + line);
             }
             else {
                 output.push("");
@@ -254,10 +265,9 @@ function formatBlocks(text, tabWidth) {
         else {
             output.push(line);
         }
-        if (/\{%[-~]?\s*block\s/.test(trimmed) &&
-            !/\{%[-~]?\s*endblock/.test(trimmed)) {
-            insideBlock = true;
-            blockBaseIndent = line.match(/^(\s*)/)?.[1] || "";
+        // Check if this line opens a new block (after outputting it)
+        if (OPENING_TAGS.test(trimmed) && !CLOSING_TAGS.test(trimmed)) {
+            depth++;
         }
     }
     return output.join("\n");
