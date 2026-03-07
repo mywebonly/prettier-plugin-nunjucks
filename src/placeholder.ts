@@ -47,39 +47,79 @@ function isBlockTag(tag: string): boolean {
   return name !== null && BLOCK_TAG_NAMES.has(name);
 }
 
+/**
+ * Check if a position is inside an HTML tag (between < and >)
+ */
+function isInsideHtmlTag(text: string, position: number): boolean {
+  // Look backwards for < that's not part of </ or <! or <= or <[ or <{
+  let i = position - 1;
+  while (i >= 0) {
+    const char = text[i];
+    if (char === ">") {
+      // Found closing > before opening <, so we're not inside a tag
+      return false;
+    }
+    if (char === "<") {
+      // Check if this is a closing tag or other special case
+      const nextChar = text[i + 1];
+      if (nextChar === "/" || nextChar === "!" || nextChar === "=") {
+        return false;
+      }
+      // Check for array access like array[0] or object like {key: value}
+      if (nextChar === "[" || nextChar === "{") {
+        return false;
+      }
+      // Found opening < without closing >, we're inside a tag
+      return true;
+    }
+    i--;
+  }
+  return false;
+}
+
 export function replacePlaceholders(text: string): PlaceholderResult {
   const map = new Map<string, PlaceholderEntry>();
   let id = 0;
 
-  const output = text.replace(NUNJUCKS_ALL, (match, comment, tag, expr) => {
-    const currentId = id++;
-    let type: PlaceholderEntry["type"];
-    let placeholder: string;
+  const output = text.replace(
+    NUNJUCKS_ALL,
+    (match, comment, tag, expr, offset) => {
+      const currentId = id++;
+      let type: PlaceholderEntry["type"];
+      let placeholder: string;
 
-    if (comment) {
-      type = "comment";
-      placeholder = `<!-- ${PREFIX}_C${currentId} -->`;
-    } else if (tag) {
-      type = "tag";
-      if (isBlockTag(tag)) {
-        placeholder = `<!-- ${PREFIX}_T${currentId} -->`;
+      const insideHtmlTag = isInsideHtmlTag(text, offset);
+
+      if (comment) {
+        type = "comment";
+        if (insideHtmlTag) {
+          // Inside HTML tag - use text placeholder to avoid breaking the tag
+          placeholder = `${PREFIX}_C${currentId}`;
+        } else {
+          placeholder = `<!-- ${PREFIX}_C${currentId} -->`;
+        }
+      } else if (tag) {
+        type = "tag";
+        if (isBlockTag(tag) && !insideHtmlTag) {
+          placeholder = `<!-- ${PREFIX}_T${currentId} -->`;
+        } else {
+          // Inline tag or inside HTML tag — use text placeholder
+          placeholder = `${PREFIX}_T${currentId}`;
+        }
       } else {
-        // Inline tag — use text placeholder
-        placeholder = `${PREFIX}_T${currentId}`;
+        type = "expression";
+        placeholder = `${PREFIX}_E${currentId}`;
       }
-    } else {
-      type = "expression";
-      placeholder = `${PREFIX}_E${currentId}`;
-    }
 
-    map.set(placeholder, {
-      id: currentId,
-      original: match,
-      type,
-    });
+      map.set(placeholder, {
+        id: currentId,
+        original: match,
+        type,
+      });
 
-    return placeholder;
-  });
+      return placeholder;
+    },
+  );
 
   return { output, map };
 }

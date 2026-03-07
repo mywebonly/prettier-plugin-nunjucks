@@ -5,7 +5,7 @@ Prettier plugin for formatting Nunjucks (`.njk`) template files. Uses Prettier's
 ## Installation
 
 ```bash
-npm install --save-dev prettier github:djvadya/prettier-plugin-nunjucks
+npm install --save-dev prettier github:mywebonly/prettier-plugin-nunjucks
 ```
 
 ## Usage

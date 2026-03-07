@@ -38,24 +38,60 @@ function isBlockTag(tag) {
     const name = getTagName(tag);
     return name !== null && BLOCK_TAG_NAMES.has(name);
 }
+/**
+ * Check if a position is inside an HTML tag (between < and >)
+ */
+function isInsideHtmlTag(text, position) {
+    // Look backwards for < that's not part of </ or <! or <= or <[ or <{
+    let i = position - 1;
+    while (i >= 0) {
+        const char = text[i];
+        if (char === ">") {
+            // Found closing > before opening <, so we're not inside a tag
+            return false;
+        }
+        if (char === "<") {
+            // Check if this is a closing tag or other special case
+            const nextChar = text[i + 1];
+            if (nextChar === "/" || nextChar === "!" || nextChar === "=") {
+                return false;
+            }
+            // Check for array access like array[0] or object like {key: value}
+            if (nextChar === "[" || nextChar === "{") {
+                return false;
+            }
+            // Found opening < without closing >, we're inside a tag
+            return true;
+        }
+        i--;
+    }
+    return false;
+}
 export function replacePlaceholders(text) {
     const map = new Map();
     let id = 0;
-    const output = text.replace(NUNJUCKS_ALL, (match, comment, tag, expr) => {
+    const output = text.replace(NUNJUCKS_ALL, (match, comment, tag, expr, offset) => {
         const currentId = id++;
         let type;
         let placeholder;
+        const insideHtmlTag = isInsideHtmlTag(text, offset);
         if (comment) {
             type = "comment";
-            placeholder = `<!-- ${PREFIX}_C${currentId} -->`;
+            if (insideHtmlTag) {
+                // Inside HTML tag - use text placeholder to avoid breaking the tag
+                placeholder = `${PREFIX}_C${currentId}`;
+            }
+            else {
+                placeholder = `<!-- ${PREFIX}_C${currentId} -->`;
+            }
         }
         else if (tag) {
             type = "tag";
-            if (isBlockTag(tag)) {
+            if (isBlockTag(tag) && !insideHtmlTag) {
                 placeholder = `<!-- ${PREFIX}_T${currentId} -->`;
             }
             else {
-                // Inline tag — use text placeholder
+                // Inline tag or inside HTML tag — use text placeholder
                 placeholder = `${PREFIX}_T${currentId}`;
             }
         }
