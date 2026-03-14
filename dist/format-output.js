@@ -134,36 +134,51 @@ function formatSetTags(text, printWidth, tabWidth) {
     return text.replace(MULTILINE_SET_RE, (match) => {
         if (!match.includes("\n"))
             return match;
-        return formatSingleSetTag(match, printWidth, tabWidth);
+        // Extract leading whitespace from the tag (indentation of first line)
+        const leadingMatch = match.match(/^(\s*)/);
+        const baseIndent = leadingMatch ? leadingMatch[1].length : 0;
+        return formatSingleSetTag(match, printWidth, tabWidth, baseIndent);
     });
 }
-function formatSingleSetTag(tag, printWidth, tabWidth) {
-    const m = tag.match(/^(\{%[-~]?\s*set\s+\w+\s*=\s*)([\s\S]*?)(\s*[-~]?%\})$/);
+function formatSingleSetTag(tag, printWidth, tabWidth, baseIndent = 0) {
+    // Strip leading whitespace for parsing
+    const strippedTag = tag.replace(/^\s*/, "");
+    const m = strippedTag.match(/^(\{%[-~]?\s*set\s+(\w+)\s*=\s*)([\s\S]*?)(\s*[-~]?%\})$/);
     if (!m)
         return tag;
-    const prefix = m[1].replace(/\s+$/, " ");
-    const rawValue = m[2].trim();
-    const suffix = " %}";
+    const varName = m[2];
+    const rawValue = m[3].trim();
     const tokens = tokenize(rawValue);
     const parsed = parseValue(tokens, 0);
     if (!parsed || parsed.nextPos !== tokens.length)
         return tag;
+    const baseIndentStr = " ".repeat(baseIndent);
     // Flat value (no nesting) → try one line
     if (!hasNesting(parsed.value)) {
-        const oneLine = prefix + formatOneLine(parsed.value) + suffix;
-        if (oneLine.length <= printWidth)
-            return oneLine;
+        const oneLine = `{% set ${varName} = ${formatOneLine(parsed.value)} %}`;
+        if (oneLine.length + baseIndent <= printWidth) {
+            return baseIndentStr + oneLine;
+        }
     }
-    // Has nesting or doesn't fit → multi-line with collapsed leaves
-    const formatted = formatValueMultiLine(parsed.value, printWidth, tabWidth, 0, prefix.length, true);
-    return prefix + formatted + suffix;
+    // Has nesting or doesn't fit → multi-line format:
+    //     {% set varname = [
+    //         ...
+    //     ] %}
+    const contentIndent = baseIndent + tabWidth;
+    const prefix = `{% set ${varName} = `;
+    const formatted = formatValueMultiLine(parsed.value, printWidth, tabWidth, contentIndent, contentIndent, true);
+    return baseIndentStr + prefix + formatted + " %}";
 }
 function hasNesting(value) {
     if (value.type === "object") {
-        return value.pairs.some((p) => p.value.type === "object" || p.value.type === "array");
+        return value.pairs.some((p) => p.value.type === "object" ||
+            p.value.type === "array" ||
+            hasNesting(p.value));
     }
     if (value.type === "array") {
-        return value.items.some((item) => item.type === "object" || item.type === "array");
+        return value.items.some((item) => item.type === "object" ||
+            item.type === "array" ||
+            hasNesting(item));
     }
     return false;
 }
