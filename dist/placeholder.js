@@ -97,7 +97,14 @@ export function replacePlaceholders(text) {
         }
         else {
             type = "expression";
-            placeholder = `${PREFIX}_E${currentId}`;
+            // Use HTML comment for multiline expressions (not inside HTML tags)
+            // so prettier treats them as block elements
+            if (match.includes("\n") && !insideHtmlTag) {
+                placeholder = `<!-- ${PREFIX}_E${currentId} -->`;
+            }
+            else {
+                placeholder = `${PREFIX}_E${currentId}`;
+            }
         }
         map.set(placeholder, {
             id: currentId,
