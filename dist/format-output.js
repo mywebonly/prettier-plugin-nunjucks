@@ -131,14 +131,27 @@ function collapseEmptyBlocks(text) {
 // ─── Set Tag Formatting ─────────────────────────────────────
 const MULTILINE_SET_RE = /\{%[-~]?\s*set\s+\w+\s*=\s*[\s\S]*?[-~]?%\}/g;
 function formatSetTags(text, printWidth, tabWidth) {
-    return text.replace(MULTILINE_SET_RE, (match) => {
-        if (!match.includes("\n"))
-            return match;
-        // Extract leading whitespace from the tag (indentation of first line)
-        const leadingMatch = match.match(/^(\s*)/);
-        const baseIndent = leadingMatch ? leadingMatch[1].length : 0;
-        return formatSingleSetTag(match, printWidth, tabWidth, baseIndent);
-    });
+    // Process from end to start to preserve positions
+    const matches = [];
+    let m;
+    const re = new RegExp(MULTILINE_SET_RE.source, "g");
+    while ((m = re.exec(text)) !== null) {
+        if (m[0].includes("\n")) {
+            matches.push({ match: m[0], index: m.index });
+        }
+    }
+    // Process in reverse order to maintain correct indices
+    let result = text;
+    for (let i = matches.length - 1; i >= 0; i--) {
+        const { match, index } = matches[i];
+        // Calculate base indent from line start
+        const lineStart = result.lastIndexOf("\n", index - 1);
+        const prefix = result.slice(lineStart + 1, index);
+        const baseIndent = prefix.length;
+        const formatted = formatSingleSetTag(match, printWidth, tabWidth, baseIndent);
+        result = result.slice(0, index) + formatted + result.slice(index + match.length);
+    }
+    return result;
 }
 function formatSingleSetTag(tag, printWidth, tabWidth, baseIndent = 0) {
     // Strip leading whitespace for parsing
@@ -152,22 +165,22 @@ function formatSingleSetTag(tag, printWidth, tabWidth, baseIndent = 0) {
     const parsed = parseValue(tokens, 0);
     if (!parsed || parsed.nextPos !== tokens.length)
         return tag;
-    const baseIndentStr = " ".repeat(baseIndent);
     // Flat value (no nesting) → try one line
     if (!hasNesting(parsed.value)) {
         const oneLine = `{% set ${varName} = ${formatOneLine(parsed.value)} %}`;
         if (oneLine.length + baseIndent <= printWidth) {
-            return baseIndentStr + oneLine;
+            return oneLine;
         }
     }
     // Has nesting or doesn't fit → multi-line format:
-    //     {% set varname = [
-    //         ...
+    //     {% set varname = {
+    //         key: value
     //     ] %}
-    const contentIndent = baseIndent + tabWidth;
     const prefix = `{% set ${varName} = `;
-    const formatted = formatValueMultiLine(parsed.value, printWidth, tabWidth, contentIndent, contentIndent, true);
-    return baseIndentStr + prefix + formatted + " %}";
+    // Content indent is one level deeper than base
+    const contentIndent = baseIndent + tabWidth;
+    const formatted = formatValueMultiLine(parsed.value, printWidth, tabWidth, contentIndent, baseIndent + prefix.length, true, baseIndent);
+    return prefix + formatted + " %}";
 }
 function hasNesting(value) {
     if (value.type === "object") {
@@ -331,12 +344,16 @@ function formatOneLine(value) {
     }
     return "";
 }
-function formatValueMultiLine(value, printWidth, tabWidth, indent, column, forceExpand = false) {
+function formatValueMultiLine(value, printWidth, tabWidth, indent, column, forceExpand = false, closeIndent) {
     const oneLine = formatOneLine(value);
     if (!forceExpand && column + oneLine.length <= printWidth)
         return oneLine;
     const indentStr = " ".repeat(indent);
-    const innerIndent = indent + tabWidth;
+    // Use closeIndent for closing bracket if provided, otherwise use indent
+    const closeIndentStr = " ".repeat(closeIndent ?? indent);
+    // When closeIndent is specified, indent is already the content level
+    // Otherwise use traditional inner indent (indent + tabWidth)
+    const innerIndent = closeIndent !== undefined ? indent : indent + tabWidth;
     const innerIndentStr = " ".repeat(innerIndent);
     if (value.type === "object") {
         if (value.pairs.length === 0)
@@ -347,7 +364,7 @@ function formatValueMultiLine(value, printWidth, tabWidth, indent, column, force
             const valFormatted = formatValueMultiLine(p.value, printWidth, tabWidth, innerIndent, valColumn, childForce);
             return `${innerIndentStr}${p.key}: ${valFormatted}`;
         });
-        return "{\n" + parts.join(",\n") + "\n" + indentStr + "}";
+        return "{\n" + parts.join(",\n") + "\n" + closeIndentStr + "}";
     }
     if (value.type === "array") {
         if (value.items.length === 0)
@@ -357,7 +374,7 @@ function formatValueMultiLine(value, printWidth, tabWidth, indent, column, force
             const formatted = formatValueMultiLine(item, printWidth, tabWidth, innerIndent, innerIndent, childForce);
             return `${innerIndentStr}${formatted}`;
         });
-        return "[\n" + parts.join(",\n") + "\n" + indentStr + "]";
+        return "[\n" + parts.join(",\n") + "\n" + closeIndentStr + "]";
     }
     return oneLine;
 }
