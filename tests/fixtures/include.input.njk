@@ -1,0 +1,10 @@
+{% extends "layout.njk" %}
+{% block header %}
+{% include "partials/nav.njk" %}
+{% endblock %}
+{% block content %}
+<main>
+{% include "partials/sidebar.njk" %}
+<div class="content">{{ body }}</div>
+</main>
+{% endblock %}

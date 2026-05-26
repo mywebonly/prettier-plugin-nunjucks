@@ -1,0 +1,9 @@
+<div>
+{% if show %}
+{% for item in items %}
+{% if item.active %}
+<span>{{ item.label }}</span>
+{% endif %}
+{% endfor %}
+{% endif %}
+</div>

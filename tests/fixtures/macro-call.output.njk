@@ -1,0 +1,6 @@
+{% macro button(label, options = {}) %}
+  <button class="btn {{ options.class }}">{{ label }}</button>
+{% endmacro %}
+{% call modal(title="Hello") %}
+  <p>{{ content }}</p>
+{% endcall %}
