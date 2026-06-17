@@ -25,10 +25,10 @@ function normalizeHtmlClosingTags(text) {
  * Collapses multi-line objects inside arrays within {{ }} expressions
  * so that restorePlaceholders re-indents them correctly.
  */
-export function preprocessExpressions(map, tabWidth) {
+export function preprocessExpressions(map, printWidth, tabWidth) {
     for (const [, entry] of map) {
         if (entry.type === "expression" && entry.original.includes("\n")) {
-            const processed = collapseObjectsInExprArrays(entry.original, tabWidth);
+            const processed = collapseObjectsInExprArrays(entry.original, printWidth, tabWidth);
             if (processed !== entry.original) {
                 entry.original = processed;
             }
@@ -36,7 +36,7 @@ export function preprocessExpressions(map, tabWidth) {
     }
 }
 // ─── Expression Array Collapsing ─────────────────────────────
-function collapseObjectsInExprArrays(expr, tabWidth) {
+function collapseObjectsInExprArrays(expr, printWidth, tabWidth) {
     let result = "";
     let i = 0;
     while (i < expr.length) {
@@ -52,7 +52,7 @@ function collapseObjectsInExprArrays(expr, tabWidth) {
             if (endIdx !== -1) {
                 const section = expr.slice(i, endIdx + 1);
                 if (section.includes("\n") && section.includes("{")) {
-                    const formatted = reformatArraySection(section, getLineIndent(expr, i), tabWidth);
+                    const formatted = reformatArraySection(section, getLineIndent(expr, i), printWidth, tabWidth);
                     if (formatted !== null) {
                         result += formatted;
                         i = endIdx + 1;
@@ -65,7 +65,7 @@ function collapseObjectsInExprArrays(expr, tabWidth) {
     }
     return result;
 }
-function reformatArraySection(arrayText, lineIndent, tabWidth) {
+function reformatArraySection(arrayText, lineIndent, printWidth, tabWidth) {
     const inner = arrayText.slice(1, -1).trim();
     if (!inner)
         return null;
@@ -84,7 +84,10 @@ function reformatArraySection(arrayText, lineIndent, tabWidth) {
     const itemIndent = lineIndent + tabWidth;
     const itemIndentStr = " ".repeat(itemIndent);
     const closingIndentStr = " ".repeat(lineIndent);
-    const itemLines = arr.items.map((item) => `${itemIndentStr}${formatOneLine(item)}`);
+    const itemLines = arr.items.map((item) => {
+        const formatted = formatValueMultiLine(item, printWidth, tabWidth, itemIndent, itemIndent);
+        return `${itemIndentStr}${formatted}`;
+    });
     return "[\n" + itemLines.join(",\n") + "\n" + closingIndentStr + "]";
 }
 function skipStringLiteral(text, start) {

@@ -1,0 +1,25 @@
+{% from "components/navigation/navigation-bottom/navigation-bottom.njk" import render as navigationBottom %}
+
+<footer class="footer">
+  <div class="container">
+    <div class="block">
+      <div class="slot-1">
+        {{ navigationBottom(
+          items=[
+            { title: "Услуги", href: "./services.html", children: [{ title: "Создание сайта", href: "#" }, { title: "SEO-продвижение", href: "#" }, { title: "Техподдержка сайта", href: "#" }, { title: "Контекстная реклама", href: "#" }, { title: "Аудит сайта", href: "#" }, { title: "Услуги дизайна", href: "#" }] }
+          ]
+        ) }}
+      </div>
+      <div class="slot-2">
+        {{ navigationBottom(
+          items=[
+            { title: "Цены", href: "./prices.html" },
+            { title: "Портфолио", href: "./portfolio.html" },
+            { title: "О нас", href: "./about.html" },
+            { title: "Контакты", href: "./contacts.html" }
+          ]
+        ) }}
+      </div>
+    </div>
+  </div>
+</footer>

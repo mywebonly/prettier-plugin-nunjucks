@@ -31,10 +31,10 @@ function normalizeHtmlClosingTags(text: string): string {
  * Collapses multi-line objects inside arrays within {{ }} expressions
  * so that restorePlaceholders re-indents them correctly.
  */
-export function preprocessExpressions(map: Map<string, PlaceholderEntry>, tabWidth: number): void {
+export function preprocessExpressions(map: Map<string, PlaceholderEntry>, printWidth: number, tabWidth: number): void {
   for (const [, entry] of map) {
     if (entry.type === "expression" && entry.original.includes("\n")) {
-      const processed = collapseObjectsInExprArrays(entry.original, tabWidth);
+      const processed = collapseObjectsInExprArrays(entry.original, printWidth, tabWidth);
       if (processed !== entry.original) {
         entry.original = processed;
       }
@@ -44,7 +44,7 @@ export function preprocessExpressions(map: Map<string, PlaceholderEntry>, tabWid
 
 // ─── Expression Array Collapsing ─────────────────────────────
 
-function collapseObjectsInExprArrays(expr: string, tabWidth: number): string {
+function collapseObjectsInExprArrays(expr: string, printWidth: number, tabWidth: number): string {
   let result = "";
   let i = 0;
 
@@ -62,7 +62,7 @@ function collapseObjectsInExprArrays(expr: string, tabWidth: number): string {
       if (endIdx !== -1) {
         const section = expr.slice(i, endIdx + 1);
         if (section.includes("\n") && section.includes("{")) {
-          const formatted = reformatArraySection(section, getLineIndent(expr, i), tabWidth);
+          const formatted = reformatArraySection(section, getLineIndent(expr, i), printWidth, tabWidth);
           if (formatted !== null) {
             result += formatted;
             i = endIdx + 1;
@@ -78,7 +78,7 @@ function collapseObjectsInExprArrays(expr: string, tabWidth: number): string {
   return result;
 }
 
-function reformatArraySection(arrayText: string, lineIndent: number, tabWidth: number): string | null {
+function reformatArraySection(arrayText: string, lineIndent: number, printWidth: number, tabWidth: number): string | null {
   const inner = arrayText.slice(1, -1).trim();
   if (!inner) return null;
 
@@ -98,7 +98,10 @@ function reformatArraySection(arrayText: string, lineIndent: number, tabWidth: n
   const itemIndentStr = " ".repeat(itemIndent);
   const closingIndentStr = " ".repeat(lineIndent);
 
-  const itemLines = arr.items.map((item) => `${itemIndentStr}${formatOneLine(item)}`);
+  const itemLines = arr.items.map((item) => {
+    const formatted = formatValueMultiLine(item, printWidth, tabWidth, itemIndent, itemIndent);
+    return `${itemIndentStr}${formatted}`;
+  });
   return "[\n" + itemLines.join(",\n") + "\n" + closingIndentStr + "]";
 }
 

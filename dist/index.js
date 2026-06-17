@@ -23,7 +23,7 @@ export const parsers = {
                 singleAttributePerLine: options.singleAttributePerLine,
                 bracketSameLine: options.bracketSameLine,
             });
-            preprocessExpressions(map, options.tabWidth);
+            preprocessExpressions(map, options.printWidth, options.tabWidth);
             const restored = restorePlaceholders(formatted, map, options.tabWidth);
             const postProcessed = formatOutput(restored, options.printWidth, options.tabWidth);
             return {

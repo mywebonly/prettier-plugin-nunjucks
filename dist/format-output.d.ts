@@ -11,4 +11,4 @@ export declare function formatOutput(text: string, printWidth: number, tabWidth:
  * Collapses multi-line objects inside arrays within {{ }} expressions
  * so that restorePlaceholders re-indents them correctly.
  */
-export declare function preprocessExpressions(map: Map<string, PlaceholderEntry>, tabWidth: number): void;
+export declare function preprocessExpressions(map: Map<string, PlaceholderEntry>, printWidth: number, tabWidth: number): void;
