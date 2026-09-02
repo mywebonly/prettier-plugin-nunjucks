@@ -1,0 +1,103 @@
+{% call quizAccordion(title="Укажите требуемое исполнение газоанализатора по диапазонам измерений *", open=true) %}
+  <div class="range-content">
+    <div class="table-wrap">
+      <table class="selection-table ranges-table">
+        <thead>
+          <tr>
+            <th rowspan="2">Исполнение</th>
+            <th colspan="6">Измерительный канал, диапазон измерений, млн⁻¹</th>
+          </tr>
+          <tr>
+            <th>O₂</th>
+            <th>CO</th>
+            <th>NO</th>
+            <th>NO₂</th>
+            <th>SO₂</th>
+            <th>H₂S</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for value in ["0–500 *", "0–10000 *", "0–10000 *", "0–20000 *", "0–10 % об. д."] %}
+            <tr>
+              <td>{{ radio(name="range_execution", value=loop.index, text=loop.index, checked=loop.first, required=true, class="quiz-radio") }}</td>
+              <td>0–25 % об. д.</td>
+              <td>{{ value }}</td>
+              <td>{% if loop.first %}0–500 *{% else %}0–4000{% endif %}</td>
+              <td>{% if loop.first %}0–500 *{% else %}0–4000{% endif %}</td>
+              <td>{% if loop.first %}0–500 *{% else %}0–4000{% endif %}</td>
+              <td>{% if loop.first %}0–500 *{% else %}0–4000{% endif %}</td>
+            </tr>
+          {% endfor %}
+          <tr class="group-row">
+            <th colspan="7">Исполнения с двумя измерительными каналами CO:</th>
+          </tr>
+          {% for value in ["0–300", "0–4000", "0–4000", "0–4000", "0–4000"] %}
+            <tr>
+              <td>{{ radio(name="range_execution", value="double-" + loop.index, text=loop.index, class="quiz-radio") }}</td>
+              <td>0–25 % об. д.</td>
+              <td>0–500 и 0–10000*</td>
+              <td>{{ value }}</td>
+              <td>{{ value }}</td>
+              <td>{{ value }}</td>
+              <td>{{ value }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="7">
+              Примечание — Для диапазонов измерений по каналу CO, отмеченных знаком «*», возможна установка специализированного датчика CO с компенсацией мешающего влияния водорода (H₂).
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <fieldset class="choice-group">
+      <legend>Укажите требуемый диапазон измерений по каналу диоксида углерода CO₂ *</legend>
+      {% for value in ["0–20 % об. д.", "0–50 % об. д.", "0–50 % об. д.", "0–100 % об. д."] %}
+        {{ radio(name="co2_range", value=loop.index, text=value, checked=loop.index == 2, required=true, class="quiz-radio") }}
+      {% endfor %}
+    </fieldset>
+
+    <fieldset class="choice-group hydrocarbons">
+      <legend>Укажите требуемый градуировочный компонент и диапазон измерений по каналу углеводородов CH *</legend>
+      {{ radio(name="hydrocarbon", value="methane", text="метан (CH₄), с диапазоном измерений:", class="quiz-radio") }}
+      <div class="nested-options">
+        {% for value in ["0–5 % об. д.", "0–20 % об. д.", "0–100 % об. д."] %}
+          {{ radio(name="methane_range", value=loop.index, text=value, class="quiz-radio") }}
+        {% endfor %}
+      </div>
+      {{ radio(name="hydrocarbon", value="propane", text="пропан (C₃H₈), с диапазоном измерений 0–2,0 % об. д.", checked=true, required=true, class="quiz-radio") }}
+    </fieldset>
+
+    {% set choices = [
+      {
+        legend: "Укажите требуемый диапазон измерений пробоотборного зонда-термопреобразователя * (по умолчанию в базовом комплекте поставки – от 0 до +800 °С)",
+        name: "probe_range",
+        values: ["от 0 до +800 °С", "от -40 до +800 °С", "от 0 до +1200 °С", "от -40 до +1200 °С"],
+        selected: 3
+      },
+      {
+        legend: "Укажите требуемую длину трубки пробоотборного зонда-термопреобразователя * (по умолчанию в базовом комплекте поставки – 300 мм)",
+        name: "probe_length",
+        values: probeLengths,
+        selected: 1
+      },
+      {
+        legend: "Укажите требуемую длину пробоотборного шланга * (по умолчанию в базовом комплекте поставки – 2,5 м)",
+        name: "hose_length",
+        values: ["2,5 м", "5 м"],
+        selected: 1
+      }
+    ] %}
+    {% for choice in choices %}
+      <fieldset class="choice-group">
+        <legend>{{ choice.legend }}</legend>
+        {% for value in choice.values %}
+          {{ radio(name=choice.name, value=loop.index, text=value, checked=loop.index == choice.selected, required=true, class="quiz-radio") }}
+        {% endfor %}
+      </fieldset>
+    {% endfor %}
+  </div>
+{% endcall %}

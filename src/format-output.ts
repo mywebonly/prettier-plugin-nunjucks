@@ -501,6 +501,27 @@ function isInsideHtmlTag(text: string, position: number): boolean {
   return false;
 }
 
+function hasMatchingOpeningTagOnLine(text: string, position: number, closingTag: string): boolean {
+  const closingName = closingTag.match(/^\{%[-~]?\s*end(\w+)\b/)?.[1];
+  if (closingName !== "if") return false;
+
+  const lineStart = text.lastIndexOf("\n", position) + 1;
+  const linePrefix = text.slice(lineStart, position + 1);
+  const tagPattern = /\{%[-~]?\s*(\w+)\b/g;
+  let depth = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tagPattern.exec(linePrefix)) !== null) {
+    if (match[1] === closingName) {
+      depth++;
+    } else if (match[1] === `end${closingName}` && depth > 0) {
+      depth--;
+    }
+  }
+
+  return depth > 0;
+}
+
 function formatBlocks(text: string, tabWidth: number): string {
   const separatedAdjacentTags = text.replace(
     /(^|\n)([ \t]*)(\{%[-~]?\s*(?:if|for|block|macro|call|filter|raw|set|end\w+)\b.*?[-~]?%\})(?=\{%[-~]?\s*(?:if|for|block|macro|call|filter|raw|set|end\w+)\b)/g,
@@ -510,6 +531,7 @@ function formatBlocks(text: string, tabWidth: number): string {
   // Ensure closing tags are on their own lines (but not inside HTML attributes)
   const result = separatedAdjacentTags.replace(/(\S)[ \t]*(\{%[-~]?\s*(?:endif|endfor|endblock|endmacro|endcall|endfilter|endraw|endset)\b.*?[-~]?%\})/g, (match, beforeChar, tagContent, offset) => {
     if (isInsideHtmlTag(separatedAdjacentTags, offset)) return match;
+    if (hasMatchingOpeningTagOnLine(separatedAdjacentTags, offset, tagContent)) return match;
     return beforeChar + "\n" + tagContent;
   });
 

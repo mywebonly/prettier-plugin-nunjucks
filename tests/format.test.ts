@@ -80,6 +80,26 @@ describe("prettier-plugin-nunjucks", () => {
     expect(second).toBe(result);
   });
 
+  it("keeps inline if/else blocks inside table cells without corrupting indentation", async () => {
+    const input =
+      "{% for value in values %}\n" +
+      "<table><tbody><tr>\n" +
+      "<td>\n" +
+      "{% if loop.first %}0–500 *{% else %}0–4000{% endif %}\n" +
+      "</td>\n" +
+      "<td>{{ value }}</td>\n" +
+      "</tr></tbody></table>\n" +
+      "{% endfor %}\n";
+
+    const result = await formatNjk(input);
+    const second = await formatNjk(result);
+
+    expect(result).toContain("<td>{% if loop.first %}0–500 *{% else %}0–4000{% endif %}</td>");
+    expect(result).toContain("\n        <td>{{ value }}</td>");
+    expect(result).toContain("\n{% endfor %}");
+    expect(second).toBe(result);
+  });
+
   it("formats multiline set objects without dropping filter expressions", async () => {
     const input =
       "{% set page = page | default({}) %}\n" +
