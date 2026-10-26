@@ -46,7 +46,8 @@ function createPrefix(text: string): string {
     hash = ((hash << 5) + hash + text.charCodeAt(i)) >>> 0;
   }
 
-  const suffix = hash.toString(36);
+  // Keep HTML line wrapping independent of the source hash's digit count.
+  const suffix = hash.toString(36).padStart(7, "0");
   let prefix = `${BASE_PREFIX}_${suffix}`;
   let attempt = 0;
   while (text.includes(prefix)) {

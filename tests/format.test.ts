@@ -27,6 +27,19 @@ function readExpectedFixture(name: string): string {
 }
 
 describe("prettier-plugin-nunjucks", () => {
+  it("keeps legends with conditional popovers stable near the line width limit", async () => {
+    const input = `{% macro options(id="", label="", items=[]) %}
+  <fieldset class="group" aria-labelledby="{{ id }}-legend">
+    <legend><span id="{{ id }}-legend">{{ label }}</span>{% if items[0].hint %}{{ infoPopover(id=id + "-help", label="Подсказка: " + label, items=items) }}{% endif %}</legend>
+  </fieldset>
+{% endmacro %}`;
+
+    for (let printWidth = 180; printWidth <= 220; printWidth++) {
+      const first = await formatNjk(input, { printWidth });
+      expect(await formatNjk(first, { printWidth })).toBe(first);
+    }
+  });
+
   it("keeps the values of more than ten textareas distinct", async () => {
     const values = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"];
     const input = values.map((value) => `<textarea>${value}</textarea>`).join("\n");

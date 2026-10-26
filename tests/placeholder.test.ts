@@ -2,6 +2,15 @@ import { describe, it, expect } from "vitest";
 import { replacePlaceholders, restorePlaceholders } from "../src/placeholder.js";
 
 describe("replacePlaceholders", () => {
+  it("keeps placeholder widths stable when surrounding whitespace changes", () => {
+    const widths = Array.from({ length: 100 }, (_, indent) => {
+      const { map } = replacePlaceholders(`${" ".repeat(indent)}<span>{{ label }}</span>`);
+      return [...map.keys()][0].length;
+    });
+
+    expect(new Set(widths).size).toBe(1);
+  });
+
   it("replaces expressions {{ }}", () => {
     const { output, map } = replacePlaceholders("<p>{{ name }}</p>");
 
