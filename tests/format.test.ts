@@ -27,6 +27,52 @@ function readExpectedFixture(name: string): string {
 }
 
 describe("prettier-plugin-nunjucks", () => {
+  it("keeps the values of more than ten textareas distinct", async () => {
+    const values = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"];
+    const input = values.map((value) => `<textarea>${value}</textarea>`).join("\n");
+    const result = await formatNjk(input);
+    expect([...result.matchAll(/<textarea>([\s\S]*?)<\/textarea>/g)].map((match) => match[1])).toEqual(values);
+    expect(await formatNjk(result)).toBe(result);
+  });
+  it("preserves more than ten expressions in one textarea", async () => {
+    const content = "{{ A }} {{ B }} {{ C }} {{ D }} {{ E }} {{ F }} {{ G }} {{ H }} {{ I }} {{ J }} {{ K }}";
+    const result = await formatNjk(`<textarea>${content}</textarea>`);
+    expect(result).toBe(`<textarea>${content}</textarea>`);
+  });
+  it("does not accumulate indentation in templated JSON scripts", async () => {
+    const input = `{% macro render(items=[]) %}
+{% if items.length %}
+<script type="application/ld+json">
+{
+  "mainEntity": [
+    {% for item in items %}
+      {% set question = {
+        name: item.name,
+        acceptedAnswer: { text: item.content }
+      } %}
+      {{ question | dump | safe }}{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]
+}
+</script>
+{% endif %}
+{% endmacro %}`;
+    const first = await formatNjk(input);
+    expect(first).toContain("name: item.name");
+    expect(first).toContain("{{ question | dump | safe }}{% if not loop.last %},{% endif %}");
+    expect(await formatNjk(first)).toBe(first);
+  });
+
+  it.each(["{{ value }}", "\n  {{ value }}", "\n  Hello {{ name }}\n", "{% if value %}{{ value }}{% endif %}"])(
+    "preserves textarea content inside nested blocks: %j",
+    async (content) => {
+      const input = `{% macro render() %}\n{% if enabled %}\n<textarea id="{{ id }}" name="{{ name }}" rows="4" placeholder="{{ placeholder }}" {{ 'required' if required }}>${content}</textarea>\n{% endif %}\n{% endmacro %}`;
+      const first = await formatNjk(input, { printWidth: 60 });
+      expect(first.match(/<textarea\b[^>]*>([\s\S]*?)<\/textarea>/)?.[1]).toBe(content);
+      expect(await formatNjk(first, { printWidth: 60 })).toBe(first);
+    },
+  );
+
   const fixtureNames = fs
     .readdirSync(fixturesDir)
     .filter((file) => file.endsWith(".input.njk"))

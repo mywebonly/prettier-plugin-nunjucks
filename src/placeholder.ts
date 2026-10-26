@@ -296,3 +296,25 @@ export function restorePlaceholders(text: string, map: Map<string, PlaceholderEn
   }
   return result;
 }
+
+// Содержимое textarea является значением поля: пробелы нельзя форматировать.
+export function protectTextareas(text: string, map: Map<string, PlaceholderEntry>): { output: string; restore: (text: string) => string } {
+  const contents = new Map<string, string>();
+  const entries = [...map].sort((a, b) => b[0].length - a[0].length);
+  let prefix = "PRETTIER_NUNJUCKS_TEXTAREA";
+  while (text.includes(prefix) || entries.some(([, entry]) => entry.original.includes(prefix))) prefix += "_";
+  const output = text.replace(/(<textarea\b(?:[^>"']|"[^"]*"|'[^']*')*>)([\s\S]*?)(<\/textarea\s*>)/gi, (_match, opening, content, closing) => {
+    const token = `${prefix}_${contents.size}_END`;
+    let original = content;
+    for (const [placeholder, entry] of entries) original = original.replaceAll(placeholder, () => entry.original);
+    contents.set(token, original);
+    return opening + (content.includes("\n") ? `\n${token}\n` : token) + closing;
+  });
+  return {
+    output,
+    restore(result) {
+      for (const [token, content] of contents) result = result.replace(new RegExp(`[ \\t\\r\\n]*${token}[ \\t\\r\\n]*`, "g"), () => content);
+      return result;
+    },
+  };
+}

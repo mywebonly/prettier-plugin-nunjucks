@@ -1,3 +1,7 @@
 import type { PlaceholderEntry, PlaceholderResult } from "./types.js";
 export declare function replacePlaceholders(text: string): PlaceholderResult;
 export declare function restorePlaceholders(text: string, map: Map<string, PlaceholderEntry>, tabWidth?: number): string;
+export declare function protectTextareas(text: string, map: Map<string, PlaceholderEntry>): {
+    output: string;
+    restore: (text: string) => string;
+};

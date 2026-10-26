@@ -1,5 +1,5 @@
 import { formatOutput, preprocessExpressions } from "./format-output.js";
-import { replacePlaceholders, restorePlaceholders } from "./placeholder.js";
+import { protectTextareas, replacePlaceholders, restorePlaceholders } from "./placeholder.js";
 
 export const languages = [
   {
@@ -15,8 +15,9 @@ export const parsers = {
     parse: async (text: string, options: any) => {
       const prettier = await import("prettier");
       const { output, map } = replacePlaceholders(text);
+      const textareas = protectTextareas(output, map);
 
-      const formatted = await prettier.format(output, {
+      const formatted = await prettier.format(textareas.output, {
         parser: "html",
         printWidth: options.printWidth,
         tabWidth: options.tabWidth,
@@ -33,7 +34,7 @@ export const parsers = {
 
       return {
         type: "nunjucks-output",
-        body: postProcessed,
+        body: textareas.restore(postProcessed),
         source: text,
       };
     },

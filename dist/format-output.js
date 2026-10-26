@@ -10,7 +10,6 @@ export function formatOutput(text, printWidth, tabWidth) {
     result = normalizeHtmlClosingTags(result);
     result = formatSetTags(result, printWidth, tabWidth);
     result = formatBlocks(result, tabWidth);
-    result = normalizeTextareaExpressions(result, tabWidth);
     result = collapseEmptyBlocks(result);
     result = collapseSimpleIfBlocks(result, printWidth);
     result = collapseSimpleOpeningTags(result, printWidth);
@@ -462,8 +461,22 @@ function formatBlocks(text, tabWidth) {
     // Stack tracks nesting depth; we just need the count
     let depth = 0;
     let inRawBlock = false;
+    let rawHtmlTag = null;
+    let rawHtmlDepth = 0;
     for (const line of lines) {
         const trimmed = line.trim();
+        // HTML-форматировщик уже обработал содержимое script/style. Повторный
+        // учёт вложенных Nunjucks-блоков приводит к накоплению отступов.
+        if (rawHtmlTag !== null && !new RegExp(`^</${rawHtmlTag}\\b`, "i").test(trimmed)) {
+            output.push(line.trim() ? indent.repeat(rawHtmlDepth) + line : "");
+            continue;
+        }
+        rawHtmlTag = null;
+        const rawOpening = trimmed.match(/^<(script|style)\b/i);
+        if (rawOpening && !new RegExp(`</${rawOpening[1]}\\s*>`, "i").test(trimmed)) {
+            rawHtmlTag = rawOpening[1];
+            rawHtmlDepth = depth;
+        }
         const isOpening = OPENING_TAGS.test(trimmed) || BLOCK_SET_TAG.test(trimmed);
         const isClosing = CLOSING_TAGS.test(trimmed);
         const containsClosing = CONTAINS_CLOSING.test(trimmed);
@@ -526,18 +539,6 @@ function formatBlocks(text, tabWidth) {
         }
     }
     return output.join("\n");
-}
-function normalizeTextareaExpressions(text, tabWidth) {
-    const normalizedClosing = text.replace(/<\/textarea[ \t\r\n]*>/g, "</textarea>");
-    return normalizedClosing.replace(/(^[ \t]*<textarea\b[^>]*>\n)([\s\S]*?)\n([ \t]*<\/textarea>)/gm, (match, opening, content, closing) => {
-        const expression = content.trim();
-        if (!/^\{\{[\s\S]*\}\}$/.test(expression) || expression.includes("\n")) {
-            return match;
-        }
-        const baseIndent = opening.match(/^[ \t]*/)?.[0] ?? "";
-        const contentIndent = baseIndent + " ".repeat(tabWidth);
-        return `${opening}${contentIndent}${expression}\n${baseIndent}${closing.trimStart()}`;
-    });
 }
 // ─── Simple If Block Collapsing ──────────────────────────────
 /**
